@@ -44,3 +44,6 @@ Property has a value helper
 .. code-block:: python
 
     assert northwind.schema.entity_type('Customer').proprty('City').value_helper is not None
+
+A property can have several *ValueList* annotations: *value_helper* is the first
+one, *value_helpers* lists them all (qualified *Annotations* are still skipped).

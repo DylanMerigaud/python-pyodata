@@ -1146,6 +1146,70 @@ def test_annot_v_l_trgt_inv_prop(mock_warning, mock_resolve, xml_builder_factory
                           )
 
 
+@patch('logging.Logger.warning')
+def test_annot_v_l_same_target(mock_warning, xml_builder_factory):
+    """Test that a property can have more than one value list annotation (#142)"""
+
+    xml_builder = xml_builder_factory()
+    xml_builder.add_schema(
+        'SAME_TARGET',
+        """
+        <EntityType Name="Dict">
+         <Key><PropertyRef Name="Key"/></Key>
+         <Property Name="Key" Type="Edm.String" Nullable="false"/>
+         <Property Name="Value" Type="Edm.String" Nullable="false"/>
+        </EntityType>
+        <EntityContainer Name="EXAMPLE_SRV" m:IsDefaultEntityContainer="true">
+         <EntitySet Name="DataValueHelp" EntityType="SAME_TARGET.Dict"/>
+         <EntitySet Name="SearchHelp" EntityType="SAME_TARGET.Dict"/>
+        </EntityContainer>
+        <Annotations xmlns="http://docs.oasis-open.org/odata/ns/edm" Target="SAME_TARGET.Dict/Value">
+         <Annotation Term="Common.ValueList">
+          <Record>
+           <PropertyValue Property="CollectionPath" String="DataValueHelp"/>
+          </Record>
+         </Annotation>
+        </Annotations>
+        <Annotations xmlns="http://docs.oasis-open.org/odata/ns/edm" Target="SAME_TARGET.Dict/Value">
+         <Annotation Term="com.sap.vocabularies.Common.v1.ValueList">
+          <Record>
+           <PropertyValue Property="CollectionPath" String="SearchHelp"/>
+           <PropertyValue Property="Parameters">
+            <Collection>
+             <Record Type="com.sap.vocabularies.Common.v1.ValueListParameterInOut">
+              <PropertyValue Property="LocalDataProperty" PropertyPath="Value"/>
+              <PropertyValue Property="ValueListProperty" String="Key"/>
+             </Record>
+            </Collection>
+           </PropertyValue>
+          </Record>
+         </Annotation>
+        </Annotations>
+        """
+    )
+
+    schema = MetadataBuilder(xml_builder.serialize()).build()
+    assert schema.is_valid
+
+    value_prop = schema.entity_type('Dict').proprty('Value')
+    assert [vh.entity_set.name for vh in value_prop.value_helpers] == ['DataValueHelp', 'SearchHelp']
+    assert [vh.proprty for vh in value_prop.value_helpers] == [value_prop, value_prop]
+    assert value_prop.value_helpers[1].local_property_param('Value').list_property.name == 'Key'
+    assert value_prop.value_helper is value_prop.value_helpers[0]
+    assert schema.entity_type('Dict').proprty('Key').value_helpers == []
+
+    with pytest.raises(RuntimeError):
+        value_prop.value_helper = value_prop.value_helpers[1]
+
+    # every value list annotation is still validated
+    metadata = MetadataBuilder(xml_builder.serialize().replace('String="SearchHelp"', 'String="Missing"'))
+    metadata.config.set_custom_error_policy({ParserError.ANNOTATION: PolicyWarning()})
+    schema = metadata.build()
+    assert not schema.is_valid
+    assert [vh.entity_set.name for vh in schema.entity_type('Dict').proprty('Value').value_helpers] == ['DataValueHelp']
+    assert_logging_policy(mock_warning, 'RuntimeError', 'Entity Set Missing for ValueHelper(Dict/Value) does not exist')
+
+
 def test_namespace_with_periods(xml_builder_factory):
     """Make sure Namespace can contain period"""
 

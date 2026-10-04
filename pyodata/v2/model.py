@@ -1440,7 +1440,7 @@ class Schema:
                                                    f'of {vh_type} as defined in {annotation} does not exist')
 
                             annotation.proprty = target_proprty
-                            target_proprty.value_helper = annotation
+                            target_proprty.add_value_helper(annotation)
                     except (RuntimeError, PyODataModelError) as ex:
                         schema._is_valid = False
                         config.err_policy(ParserError.ANNOTATION).resolve(ex)
@@ -1786,7 +1786,7 @@ class StructTypeProperty(VariableDeclaration):
                  fixed_length=None):
         super().__init__(name, type_info, nullable, max_length, precision, scale, fixed_length)
 
-        self._value_helper = None
+        self._value_helpers = []
         self._struct_type = None
         self._uncode = uncode
         self._label = label
@@ -1883,7 +1883,13 @@ class StructTypeProperty(VariableDeclaration):
 
     @property
     def value_helper(self):
-        return self._value_helper
+        """The first value helper of the property, or None"""
+        return self._value_helpers[0] if self._value_helpers else None
+
+    @property
+    def value_helpers(self):
+        """All value helpers of the property, in the order of the metadata"""
+        return list(self._value_helpers)
 
     @property
     def value_list(self):
@@ -1892,10 +1898,15 @@ class StructTypeProperty(VariableDeclaration):
     @value_helper.setter
     def value_helper(self, value):
         # Value Help property must not be changed
-        if self._value_helper is not None:
-            raise RuntimeError(f'Cannot replace value helper {self._value_helper} of {self} by {value}')
+        if self._value_helpers:
+            raise RuntimeError(f'Cannot replace value helper {self.value_helper} of {self} by {value}')
 
-        self._value_helper = value
+        if value is not None:
+            self._value_helpers.append(value)
+
+    def add_value_helper(self, value):
+        """Adds a value helper, a property can have more than one"""
+        self._value_helpers.append(value)
 
     @staticmethod
     def from_etree(entity_type_property_node):

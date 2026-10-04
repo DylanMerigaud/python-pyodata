@@ -6,9 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- model: `StructTypeProperty.value_helpers` returns every value helper of a property, in the order of the metadata (#142) - Dylan Merigaud
+
 ### Fixed
 
 - service: `update_entity` accepts `200 OK` as well as `204 No Content`, so updates against services such as SAP SuccessFactors no longer raise `HttpError` (#136) - Sena Köse
+- model: a property with several value list annotations no longer raises `Cannot replace value helper` or marks the schema invalid (#142) - Dylan Merigaud
 
 ## [1.12.1]
 
